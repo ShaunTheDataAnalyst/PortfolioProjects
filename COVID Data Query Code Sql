@@ -1,0 +1,154 @@
+SELECT *
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+WHERE continent is not null
+order by 3,4
+
+--SELECT *
+--From `adept-protocol-388712.PortfolioProject.covidvaccinations`
+--WHERE continent is not null
+--order by 3,4
+
+--Select Data that I'll be using
+
+SELECT Location, date, total_cases, new_cases, total_deaths, population
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+WHERE continent is not null
+order by 1,2
+
+--Looking at Total Cases vs Total Deaths
+--Shows likelihood of dying if you contract COVID in your country
+
+SELECT Location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as DeathPercentage
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%france%'
+WHERE continent is not null
+order by 1,2
+
+--Looking at the Total Cases vs Population
+--Shows what percentage of population got COVID
+
+SELECT Location, date, total_cases, population, (total_cases/population)*100 as PercentOFPopulationInfected
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%france%'
+WHERE continent is not null
+order by 1,2
+
+--Looking at Countries with Highest Infection Rate Compared to Population
+
+SELECT Location, population, MAX(total_cases) as HighestInfectionCount, MAX((total_cases/population))*100 as PercentPopulationInfected
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%france%'
+WHERE continent is not null
+GROUP BY location, population
+order by PercentPopulationInfected desc
+
+--Showing Countries with the Highest Death Count per Population
+
+SELECT Location, MAX(cast(total_deaths as int)) as TotalDeathCount
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%france%'
+WHERE continent is not null
+GROUP BY location
+order by TotalDeathCount desc
+
+--BREAKING THINGS DOWN BY CONTINENT
+
+--Showing Continent with Highest Death Count per Population
+
+SELECT continent, MAX(cast(total_deaths as int)) as TotalDeathCount
+From `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%france%'
+WHERE continent is not null
+GROUP BY continent
+order by TotalDeathCount desc
+
+
+--GLOBAL NUMBERS
+
+SELECT date, SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_cases)*100 as DeathPercentage
+FROM `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%states%'
+WHERE continent is not null
+GROUP BY date
+order by 1,2
+
+--Alternate to get total World Numbers
+--SELECT SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_cases)*100 as DeathPercentage
+--FROM `adept-protocol-388712.PortfolioProject.CovidDeaths`
+--WHERE location like '%states%'
+--WHERE continent is not null
+--order by 1,2
+
+
+--Looking at Total Population vs Vaccinations
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(CAST(vac.new_vaccinations as int)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+--, (RollingPeopleVaccinated/population)*100
+FROM `adept-protocol-388712.PortfolioProject.CovidDeaths` dea
+JOIN `adept-protocol-388712.PortfolioProject.covidvaccinations` vac
+    ON dea.location = vac.location
+    and dea.date = vac.date
+WHERE dea.continent is not null
+order by 2,3
+
+
+
+
+--USE CTE
+
+With PopvsVac (continent, location, date, population, New_Vaccinations, RollingPeopleVaccinated)
+as
+(
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(CAST(vac.new_vaccinations as int)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+--, (RollingPeopleVaccinated/population)*100
+FROM `adept-protocol-388712.PortfolioProject.CovidDeaths` dea
+JOIN `adept-protocol-388712.PortfolioProject.covidvaccinations` vac
+    ON dea.location = vac.location
+    and dea.date = vac.date
+WHERE dea.continent is not null
+--order by 2,3
+)
+SELECT *, (RollingPeopleVaccinated/population)*100
+FROM PopvsVac
+
+
+
+
+-- TEMP TABLE
+DROP TABLE IF EXISTS #PercentPopulationVaccinated
+Create Table #PercentPopulationVaccinated
+(
+Continent nvarchar(255),
+loacation nvarchar(255)
+Date datetime
+population numeric
+RollingPeopleVaccinated numeric
+)
+
+INSERT INTO #PercentagePopulationVaccinated
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(CAST(vac.new_vaccinations as int)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+--, (RollingPeopleVaccinated/population)*100
+FROM `adept-protocol-388712.PortfolioProject.CovidDeaths` dea
+JOIN `adept-protocol-388712.PortfolioProject.covidvaccinations` vac
+    ON dea.location = vac.location
+    and dea.date = vac.date
+WHERE dea.continent is not null
+--order by 2,3
+)
+SELECT *, (RollingPeopleVaccinated/population)*100
+FROM PopvsVac
+
+
+
+
+--Creating View to store data for later Visualizations
+
+CREATE VIEW PercentPopulationVaccinated as
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(CAST(vac.new_vaccinations as int)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+--, (RollingPeopleVaccinated/population)*100
+FROM `adept-protocol-388712.PortfolioProject.CovidDeaths` dea
+JOIN `adept-protocol-388712.PortfolioProject.covidvaccinations` vac
+    ON dea.location = vac.location
+    and dea.date = vac.date
+WHERE dea.continent is not null
+--order by 2,3
